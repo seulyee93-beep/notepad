@@ -18,10 +18,6 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://notepad-app.onrender.com
-      - key: TURSO_URL
-      - key: TURSO_TOKEN
-      - key: ADMIN
-      - key: PW
 
   # Frontend (Static Site - Starter)
   - type: web
