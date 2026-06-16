@@ -1,12 +1,10 @@
 #!/bin/bash
 set -e
 
+echo "Setting up database..."
 if [ -n "$TURSO_URL" ]; then
-  export DATABASE_URL="${TURSO_URL}?authToken=${TURSO_TOKEN:-}"
-  echo "Turso DB detected — pushing schema..."
-  npx prisma db push --accept-data-loss
+  node scripts/setup-db.js
 else
-  echo "Local SQLite — pushing schema..."
   npx prisma db push --accept-data-loss
 fi
 
