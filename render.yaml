@@ -24,7 +24,8 @@ services:
       - key: PW
 
   # Frontend (Static Site - Starter)
-  - type: static
+  - type: web
+    env: static
     name: notepad-app
     plan: starter
     rootDir: frontend
