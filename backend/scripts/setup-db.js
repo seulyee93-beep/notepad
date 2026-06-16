@@ -6,8 +6,10 @@ async function setup() {
     return;
   }
 
+  // libsql:// uses WebSockets which can fail on some hosts; https:// is more reliable
+  const url = process.env.TURSO_URL.replace(/^libsql:\/\//, 'https://');
   const client = createClient({
-    url: process.env.TURSO_URL,
+    url,
     authToken: process.env.TURSO_TOKEN || '',
   });
 

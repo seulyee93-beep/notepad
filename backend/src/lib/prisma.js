@@ -5,8 +5,9 @@ const { createClient } = require('@libsql/client');
 let prisma;
 
 if (process.env.TURSO_URL) {
+  const url = process.env.TURSO_URL.replace(/^libsql:\/\//, 'https://');
   const libsql = createClient({
-    url: process.env.TURSO_URL,
+    url,
     authToken: process.env.TURSO_TOKEN || '',
   });
   const adapter = new PrismaLibSQL(libsql);
