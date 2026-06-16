@@ -1,11 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // 로그인 없이 자동 인증 — 기본 사용자가 없으면 생성 후 토큰 반환
 router.post('/auto', async (req, res) => {
