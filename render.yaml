@@ -1,9 +1,9 @@
 services:
-  # Backend API (Web Service - Starter)
+  # Backend API (Web Service - Free)
   - type: web
     name: notepad-api
     runtime: node
-    plan: starter
+    plan: free
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm start
@@ -19,11 +19,11 @@ services:
       - key: FRONTEND_URL
         value: https://notepad-app.onrender.com
 
-  # Frontend (Static Site - Starter)
+  # Frontend (Static Site - Free)
   - type: web
     env: static
     name: notepad-app
-    plan: starter
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -36,8 +36,8 @@ services:
         destination: /index.html
 
 databases:
-  # PostgreSQL (Starter)
+  # PostgreSQL (Free)
   - name: notepad-db
-    plan: starter
+    plan: free
     databaseName: notepad
     user: notepad
