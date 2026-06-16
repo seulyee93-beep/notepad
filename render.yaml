@@ -1,9 +1,9 @@
 services:
-  # Backend API (Web Service - Free)
-  - type: worker
+  # Backend API (Web Service - Starter)
+  - type: web
     name: notepad-api
     runtime: node
-    plan: free
+    plan: starter
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm start
@@ -23,10 +23,10 @@ services:
       - key: ADMIN
       - key: PW
 
-  # Frontend (Static Site - Free)
-  - type: static_site
+  # Frontend (Static Site - Starter)
+  - type: static
     name: notepad-app
-    plan: free
+    plan: starter
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -39,8 +39,8 @@ services:
         destination: /index.html
 
 databases:
-  # PostgreSQL (Free tier)
+  # PostgreSQL (Starter)
   - name: notepad-db
-    plan: free
+    plan: starter
     databaseName: notepad
     user: notepad
