@@ -6,7 +6,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "prisma migrate deploy",
-    "build": "prisma generate && prisma migrate deploy"
+    "build": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
