@@ -24,7 +24,7 @@ services:
       - key: PW
 
   # Frontend (Static Site - Free)
-  - type: static
+  - type: static_site
     name: notepad-app
     runtime: static
     plan: free
