@@ -26,7 +26,6 @@ services:
   # Frontend (Static Site - Free)
   - type: static_site
     name: notepad-app
-    runtime: static
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
