@@ -23,7 +23,6 @@ services:
   - type: web
     env: static
     name: notepad-app
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
