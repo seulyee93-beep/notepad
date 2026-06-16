@@ -1,19 +1,18 @@
-const { createClient } = require('@libsql/client');
-
+// Uses Turso HTTP API directly — avoids @libsql/client migration state bug in v0.6.x
 async function setup() {
-  if (!process.env.TURSO_URL) {
-    console.log('No TURSO_URL — skipping Turso setup');
+  const tursoUrl = process.env.TURSO_URL;
+  const tursoToken = process.env.TURSO_TOKEN || '';
+
+  if (!tursoUrl) {
+    console.log('No TURSO_URL — skipping setup');
     return;
   }
 
-  // libsql:// uses WebSockets which can fail on some hosts; https:// is more reliable
-  const url = process.env.TURSO_URL.replace(/^libsql:\/\//, 'https://');
-  const client = createClient({
-    url,
-    authToken: process.env.TURSO_TOKEN || '',
-  });
+  // Convert libsql:// or https:// to plain hostname
+  const host = tursoUrl.replace(/^(libsql|https):\/\//, '');
+  const apiUrl = `https://${host}/v2/pipeline`;
 
-  const statements = [
+  const sqls = [
     `CREATE TABLE IF NOT EXISTS "User" (
       "id"        TEXT     NOT NULL PRIMARY KEY,
       "email"     TEXT     NOT NULL,
@@ -63,8 +62,27 @@ async function setup() {
     )`,
   ];
 
-  for (const sql of statements) {
-    await client.execute(sql);
+  const requests = sqls.map(sql => ({ type: 'execute', stmt: { sql } }));
+  requests.push({ type: 'close' });
+
+  const res = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${tursoToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ requests }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Turso API error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  const failed = data.results?.filter(r => r.type === 'error');
+  if (failed?.length) {
+    throw new Error(`SQL error: ${JSON.stringify(failed)}`);
   }
 
   console.log('Database tables ready');
