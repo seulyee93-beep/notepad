@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install && npm run build
-    startCommand: npx prisma migrate deploy && npm start
+    startCommand: bash scripts/start.sh
     envVars:
       - key: NODE_ENV
         value: production
@@ -30,7 +30,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://notepad-api.onrender.com
+        value: https://notepad-api-y3m7.onrender.com
     routes:
       - type: rewrite
         source: /*
