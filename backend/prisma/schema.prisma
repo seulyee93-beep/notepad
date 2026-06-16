@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notebooks Notebook[]
+  notes     Note[]
+  tags      Tag[]
+}
+
+model Notebook {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes  Note[]
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String   @default("제목 없음")
+  content   String   @default("")
+  isPinned  Boolean  @default(false)
+  isTrashed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notebookId String?
+  notebook   Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
+  tags       NoteTag[]
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#64748b")
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes  NoteTag[]
+
+  @@unique([userId, name])
+}
+
+model NoteTag {
+  noteId String
+  tagId  String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+}
