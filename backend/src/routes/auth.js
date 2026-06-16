@@ -7,6 +7,30 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// 로그인 없이 자동 인증 — 기본 사용자가 없으면 생성 후 토큰 반환
+router.post('/auto', async (req, res) => {
+  try {
+    const DEFAULT_EMAIL = 'owner@notepad.local';
+    let user = await prisma.user.findUnique({ where: { email: DEFAULT_EMAIL } });
+
+    if (!user) {
+      const hashed = await bcrypt.hash('notepad-default', 10);
+      user = await prisma.user.create({
+        data: { email: DEFAULT_EMAIL, password: hashed, name: '나' },
+      });
+      await prisma.notebook.create({
+        data: { name: '첫 번째 노트북', userId: user.id },
+      });
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '365d' });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name } = req.body;

@@ -8,30 +8,34 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.get('/auth/me')
-        .then(res => setUser(res.data))
-        .catch(() => localStorage.removeItem('token'))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    const init = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const res = await api.get('/auth/me');
+          setUser(res.data);
+        } else {
+          // 토큰 없으면 자동 로그인
+          const res = await api.post('/auth/auto');
+          localStorage.setItem('token', res.data.token);
+          setUser(res.data.user);
+        }
+      } catch {
+        // 토큰 만료 등 오류 시 재발급
+        try {
+          localStorage.removeItem('token');
+          const res = await api.post('/auth/auto');
+          localStorage.setItem('token', res.data.token);
+          setUser(res.data.user);
+        } catch {
+          // 서버 연결 실패
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
-
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
-    return res.data;
-  };
-
-  const register = async (email, password, name) => {
-    const res = await api.post('/auth/register', { email, password, name });
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
-    return res.data;
-  };
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -39,7 +43,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );

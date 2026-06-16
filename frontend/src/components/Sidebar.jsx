@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import {
   BookOpen, StickyNote, Pin, Trash2, Tag, ChevronDown, ChevronRight,
-  Plus, LogOut, Settings, PanelLeftClose, PanelLeftOpen, Pencil, Check, X
+  Plus, PanelLeftClose, PanelLeftOpen, Pencil, Check, X
 } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4'];
@@ -282,19 +282,13 @@ export default function Sidebar({ notebooks, tags, filter, onFilterChange, onNot
         </div>
       </div>
 
-      {/* User */}
-      <div className="border-t border-gray-100 p-3">
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-semibold text-xs">
-            {user?.name?.[0]?.toUpperCase()}
+      {/* App name footer */}
+      <div className="border-t border-gray-100 p-4">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <BookOpen className="w-4 h-4 text-white" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">{user?.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
-          </div>
-          <button onClick={logout} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-red-500" title="로그아웃">
-            <LogOut className="w-4 h-4" />
-          </button>
+          <span className="text-sm font-semibold text-gray-700">내 메모장</span>
         </div>
       </div>
     </div>
