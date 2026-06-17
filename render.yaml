@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://notepad-app-y3m7.onrender.com
+        value: https://notepad-app-t1td.onrender.com
 
   # Frontend (Static Site - Free)
   - type: web
@@ -28,7 +28,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://notepad-api-y3m7.onrender.com
+        value: https://notepad-api-t1td.onrender.com
     routes:
       - type: rewrite
         source: /*
