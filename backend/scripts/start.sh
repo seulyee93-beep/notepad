@@ -5,7 +5,7 @@ echo "Setting up database..."
 if [ -n "$TURSO_URL" ]; then
   node scripts/setup-db.js
 else
-  npx prisma db push --accept-data-loss
+  echo "No TURSO_URL — skipping DB setup (local mode)"
 fi
 
 exec node src/index.js

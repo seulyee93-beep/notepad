@@ -1,97 +1,169 @@
 const express = require('express');
-const prisma = require('../lib/prisma');
+const { randomUUID } = require('crypto');
+const db = require('../lib/db');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
-
 router.use(auth);
 
-router.get('/', async (req, res) => {
-  const { notebookId, tagId, search, trashed, pinned } = req.query;
-
-  const where = { userId: req.user.id, isTrashed: trashed === 'true' };
-
-  if (notebookId) where.notebookId = notebookId;
-  if (pinned === 'true') where.isPinned = true;
-  if (tagId) where.tags = { some: { tagId } };
-  if (search) {
-    where.OR = [
-      { title: { contains: search } },
-      { content: { contains: search } },
-    ];
-  }
-
-  const notes = await prisma.note.findMany({
-    where,
-    include: {
-      notebook: { select: { id: true, name: true, color: true } },
-      tags: { include: { tag: true } },
-    },
-    orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
+async function fetchNoteWithRelations(noteId) {
+  const noteResult = await db.execute({
+    sql: `SELECT n.id, n.title, n.content, n.isPinned, n.isTrashed, n.createdAt, n.updatedAt, n.userId, n.notebookId,
+            nb.name as notebookName, nb.color as notebookColor
+          FROM "Note" n LEFT JOIN "Notebook" nb ON n.notebookId = nb.id
+          WHERE n.id = ?`,
+    args: [noteId],
   });
-  res.json(notes);
+  const n = noteResult.rows[0];
+  if (!n) return null;
+
+  const tagsResult = await db.execute({
+    sql: `SELECT t.id, t.name, t.color FROM "NoteTag" nt JOIN "Tag" t ON nt.tagId = t.id WHERE nt.noteId = ?`,
+    args: [noteId],
+  });
+
+  return {
+    id: n.id, title: n.title, content: n.content,
+    isPinned: n.isPinned === 1, isTrashed: n.isTrashed === 1,
+    createdAt: n.createdAt, updatedAt: n.updatedAt,
+    userId: n.userId, notebookId: n.notebookId,
+    notebook: n.notebookId ? { id: n.notebookId, name: n.notebookName, color: n.notebookColor } : null,
+    tags: tagsResult.rows.map(t => ({ tag: { id: t.id, name: t.name, color: t.color } })),
+  };
+}
+
+router.get('/', async (req, res) => {
+  try {
+    const { notebookId, tagId, search, trashed, pinned } = req.query;
+
+    let sql = `SELECT n.id, n.title, n.content, n.isPinned, n.isTrashed, n.createdAt, n.updatedAt, n.userId, n.notebookId,
+                 nb.name as notebookName, nb.color as notebookColor
+               FROM "Note" n LEFT JOIN "Notebook" nb ON n.notebookId = nb.id`;
+    if (tagId) sql += ` INNER JOIN "NoteTag" nt ON n.id = nt.noteId AND nt.tagId = ?`;
+    sql += ` WHERE n.userId = ? AND n.isTrashed = ?`;
+
+    const args = [];
+    if (tagId) args.push(tagId);
+    args.push(req.user.id, trashed === 'true' ? 1 : 0);
+
+    if (notebookId) { sql += ` AND n.notebookId = ?`; args.push(notebookId); }
+    if (pinned === 'true') sql += ` AND n.isPinned = 1`;
+    if (search) {
+      sql += ` AND (n.title LIKE ? OR n.content LIKE ?)`;
+      args.push(`%${search}%`, `%${search}%`);
+    }
+    sql += ` ORDER BY n.isPinned DESC, n.updatedAt DESC`;
+
+    const notesResult = await db.execute({ sql, args });
+    const notes = notesResult.rows;
+    if (!notes.length) return res.json([]);
+
+    const noteIds = notes.map(n => n.id);
+    const tagsResult = await db.execute({
+      sql: `SELECT nt.noteId, t.id as tagId, t.name, t.color FROM "NoteTag" nt JOIN "Tag" t ON nt.tagId = t.id WHERE nt.noteId IN (${noteIds.map(() => '?').join(',')})`,
+      args: noteIds,
+    });
+
+    const tagsByNote = {};
+    for (const row of tagsResult.rows) {
+      if (!tagsByNote[row.noteId]) tagsByNote[row.noteId] = [];
+      tagsByNote[row.noteId].push({ tag: { id: row.tagId, name: row.name, color: row.color } });
+    }
+
+    res.json(notes.map(n => ({
+      id: n.id, title: n.title, content: n.content,
+      isPinned: n.isPinned === 1, isTrashed: n.isTrashed === 1,
+      createdAt: n.createdAt, updatedAt: n.updatedAt,
+      userId: n.userId, notebookId: n.notebookId,
+      notebook: n.notebookId ? { id: n.notebookId, name: n.notebookName, color: n.notebookColor } : null,
+      tags: tagsByNote[n.id] || [],
+    })));
+  } catch (err) {
+    console.error('[notes GET]', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
 });
 
 router.post('/', async (req, res) => {
-  const { title, content, notebookId, tagIds } = req.body;
+  try {
+    const { title, content, notebookId, tagIds } = req.body;
+    const now = new Date().toISOString();
+    const id = randomUUID();
 
-  const note = await prisma.note.create({
-    data: {
-      title: title || '제목 없음',
-      content: content || '',
-      userId: req.user.id,
-      notebookId: notebookId || null,
-      tags: tagIds?.length ? { create: tagIds.map(tagId => ({ tagId })) } : undefined,
-    },
-    include: {
-      notebook: { select: { id: true, name: true, color: true } },
-      tags: { include: { tag: true } },
-    },
-  });
-  res.json(note);
+    await db.execute({
+      sql: 'INSERT INTO "Note" (id, title, content, isPinned, isTrashed, createdAt, updatedAt, userId, notebookId) VALUES (?, ?, ?, 0, 0, ?, ?, ?, ?)',
+      args: [id, title || '제목 없음', content || '', now, now, req.user.id, notebookId || null],
+    });
+
+    if (tagIds && tagIds.length) {
+      for (const tagId of tagIds) {
+        await db.execute({
+          sql: 'INSERT INTO "NoteTag" (noteId, tagId) VALUES (?, ?)',
+          args: [id, tagId],
+        });
+      }
+    }
+
+    res.json(await fetchNoteWithRelations(id));
+  } catch (err) {
+    console.error('[notes POST]', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
 });
 
 router.put('/:id', async (req, res) => {
-  const note = await prisma.note.findFirst({
-    where: { id: req.params.id, userId: req.user.id },
-  });
-  if (!note) return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
+  try {
+    const check = await db.execute({
+      sql: 'SELECT id FROM "Note" WHERE id = ? AND userId = ?',
+      args: [req.params.id, req.user.id],
+    });
+    if (!check.rows.length) return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
 
-  const { title, content, notebookId, isPinned, isTrashed, tagIds } = req.body;
+    const { title, content, notebookId, isPinned, isTrashed, tagIds } = req.body;
+    const now = new Date().toISOString();
+    const sets = ['updatedAt = ?'];
+    const args = [now];
 
-  const data = {};
-  if (title !== undefined) data.title = title;
-  if (content !== undefined) data.content = content;
-  if (notebookId !== undefined) data.notebookId = notebookId;
-  if (isPinned !== undefined) data.isPinned = isPinned;
-  if (isTrashed !== undefined) data.isTrashed = isTrashed;
+    if (title !== undefined) { sets.push('title = ?'); args.push(title); }
+    if (content !== undefined) { sets.push('content = ?'); args.push(content); }
+    if (notebookId !== undefined) { sets.push('notebookId = ?'); args.push(notebookId); }
+    if (isPinned !== undefined) { sets.push('isPinned = ?'); args.push(isPinned ? 1 : 0); }
+    if (isTrashed !== undefined) { sets.push('isTrashed = ?'); args.push(isTrashed ? 1 : 0); }
+    args.push(req.params.id);
 
-  if (tagIds !== undefined) {
-    await prisma.noteTag.deleteMany({ where: { noteId: req.params.id } });
-    if (tagIds.length > 0) {
-      data.tags = { create: tagIds.map(tagId => ({ tagId })) };
+    await db.execute({ sql: `UPDATE "Note" SET ${sets.join(', ')} WHERE id = ?`, args });
+
+    if (tagIds !== undefined) {
+      await db.execute({ sql: 'DELETE FROM "NoteTag" WHERE noteId = ?', args: [req.params.id] });
+      for (const tagId of tagIds) {
+        await db.execute({
+          sql: 'INSERT INTO "NoteTag" (noteId, tagId) VALUES (?, ?)',
+          args: [req.params.id, tagId],
+        });
+      }
     }
-  }
 
-  const updated = await prisma.note.update({
-    where: { id: req.params.id },
-    data,
-    include: {
-      notebook: { select: { id: true, name: true, color: true } },
-      tags: { include: { tag: true } },
-    },
-  });
-  res.json(updated);
+    res.json(await fetchNoteWithRelations(req.params.id));
+  } catch (err) {
+    console.error('[notes PUT]', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
 });
 
 router.delete('/:id', async (req, res) => {
-  const note = await prisma.note.findFirst({
-    where: { id: req.params.id, userId: req.user.id },
-  });
-  if (!note) return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
+  try {
+    const check = await db.execute({
+      sql: 'SELECT id FROM "Note" WHERE id = ? AND userId = ?',
+      args: [req.params.id, req.user.id],
+    });
+    if (!check.rows.length) return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
 
-  await prisma.note.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
+    await db.execute({ sql: 'DELETE FROM "Note" WHERE id = ?', args: [req.params.id] });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[notes DELETE]', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
 });
 
 module.exports = router;

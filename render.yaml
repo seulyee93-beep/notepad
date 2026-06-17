@@ -5,13 +5,11 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install
     startCommand: bash scripts/start.sh
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: file:./prod.db
       - key: TURSO_URL
         sync: false
       - key: TURSO_TOKEN
