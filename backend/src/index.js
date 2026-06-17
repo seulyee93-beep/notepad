@@ -9,10 +9,13 @@ const tagRoutes = require('./routes/tags');
 
 const app = express();
 
-app.use(cors({
+const corsOptions = {
   origin: process.env.FRONTEND_URL || '*',
   credentials: true,
-}));
+  optionsSuccessStatus: 200,
+};
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
